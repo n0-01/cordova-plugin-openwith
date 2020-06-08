@@ -160,11 +160,34 @@ class Serializer {
         try {
             final InputStream inputStream = contentResolver.openInputStream(uri);
             final byte[] bytes = ByteStreams.toByteArray(inputStream);
-            return Base64.encodeToString(bytes, Base64.NO_WRAP);
+            return toBase64(bytes);
         }
         catch (IOException e) {
             return "";
         }
+    }
+
+    public static void streamBytesFromURI(
+            final ContentResolver contentResolver,
+            final Uri uri,
+            final AsyncReader<byte[]> reader) {
+        try {
+            final InputStream inputStream = contentResolver.openInputStream(uri);
+            ByteStreams.streamBytes(inputStream, reader);
+        }
+        catch (IOException e) {
+            reader.onError(e);
+        }
+    }
+
+    public static String toBase64(final byte[] data){
+      return toBase64(data, -1);
+    }
+
+    public static String toBase64(final byte[] data, int length){
+      length = length >= 0 ? length : data.length;
+
+      return Base64.encodeToString(data, 0, length, Base64.NO_WRAP);
     }
 
 	/** Convert the Uri to the direct file system path of the image file.

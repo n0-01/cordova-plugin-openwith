@@ -78,6 +78,10 @@ function initOpenwithPlugin (root) {
     }
   }
 
+  openwith.started = function () {
+    return initCalled
+  }
+
   // reset the state to default
   openwith.reset = function () {
     log(DEBUG, 'reset')
@@ -170,6 +174,30 @@ function initOpenwithPlugin (root) {
     } else {
       cordova.exec(loadSuccess, loadError, PLUGIN_NAME, 'load', [dataDescriptor])
     }
+  }
+
+  openwith.stream = function (dataDescriptor, options) {
+    options = options || {}
+    const onEnd = options.onend
+    const onData = options.ondata
+    const onError = options.onerror
+
+    var gotData = function (chunk) {
+      if (chunk) {
+        if (onData) {
+          onData(chunk, dataDescriptor)
+        }
+      } else if (onEnd) {
+        onEnd(dataDescriptor)
+      }
+    }
+    var loadError = function (err) {
+      if (onError) {
+        onError(err, dataDescriptor)
+      }
+    }
+
+    cordova.exec(gotData, loadError, PLUGIN_NAME, 'stream', [dataDescriptor, options])
   }
 
   openwith.exit = function () {

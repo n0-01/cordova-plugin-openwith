@@ -40,7 +40,14 @@ public final class ByteStreams {
      * Creates a new byte array for buffering reads or writes.
      */
     static byte[] createBuffer() {
-        return new byte[8192];
+        return createBuffer(8192);
+    }
+
+    /**
+     * Creates a new byte array for buffering reads or writes.
+     */
+    static byte[] createBuffer(final int length) {
+        return new byte[length];
     }
 
     private ByteStreams() {}
@@ -90,6 +97,37 @@ public final class ByteStreams {
                 Math.max(32, in.available()));
         copy(in, out);
         return out.toByteArray();
+    }
+
+    /**
+     * Reads all bytes from an input stream into a byte array. Does not close the stream.
+     *
+     * @param in the input stream to read from
+     * @return a byte array containing all the bytes from the stream
+     * @throws IOException if an I/O error occurs
+     */
+    public static long streamBytes(
+            final InputStream input,
+            final AsyncReader<byte[]> reader) // NOPMD
+            throws IOException {
+        checkNotNull(input);
+        checkNotNull(reader);
+
+        //Use a buffer with size multiple of 3 to avoid errors when converting
+        //to base64
+        final byte[] buf = createBuffer(8196);
+        long total = 0;
+        while (true) {
+            final int r = input.read(buf); // NOPMD
+            if (r == -1) {
+                //signals end of data
+                reader.onData(buf, 0);
+                break;
+            }
+            reader.onData(buf, r);
+            total += r;
+        }
+        return total;
     }
 }
 // vim: ts=4:sw=4:et

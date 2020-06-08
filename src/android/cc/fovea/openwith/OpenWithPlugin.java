@@ -61,6 +61,20 @@ public class OpenWithPlugin extends CordovaPlugin {
     /** Intents added before the handler has been registered */
     private ArrayList pendingIntents = new ArrayList(); //NOPMD
 
+    enum ResultFormat {
+      binary,
+      base64;
+
+      static ResultFormat fromString(final String value){
+        try{
+          return ResultFormat.valueOf(value);
+        }
+        catch(IllegalArgumentException e){
+          return null;
+        }
+      }
+    }
+
     /**
      * Called when the WebView does a top-level navigation or refreshes.
      *
@@ -101,6 +115,9 @@ public class OpenWithPlugin extends CordovaPlugin {
         }
         else if ("load".equals(action)) {
             return load(data, callbackContext);
+        }
+        else if ("stream".equals(action)) {
+            return stream(data, callbackContext);
         }
         else if ("exit".equals(action)) {
             return exit(data, callbackContext);
@@ -199,6 +216,90 @@ public class OpenWithPlugin extends CordovaPlugin {
         });
         return true;
     }
+
+    public boolean stream(final JSONArray data, final CallbackContext context){
+        log(DEBUG, "stream()");
+        if (data.length() != 2) {
+            log(WARN, "stream() -> incorrect number of arguments");
+            return false;
+        }
+        final ContentResolver contentResolver = this.cordova
+            .getActivity().getApplicationContext().getContentResolver();
+        cordova.getThreadPool()
+                  .execute(new StreamIntentRunnable(contentResolver, context, data));
+        return true;
+    }
+
+    class StreamIntentRunnable implements Runnable, AsyncReader<byte[]>{
+        private ContentResolver contentResolver;
+        private CallbackContext context;
+        private JSONArray data;
+        private ResultFormat format;
+        private Uri uri;
+
+        public StreamIntentRunnable(
+          final ContentResolver contentResolver,
+          final CallbackContext context,
+          final JSONArray data)
+        {
+          this.contentResolver = contentResolver;
+          this.context = context;
+          this.data = data;
+        }
+
+        public void run() {
+            try {
+                final JSONObject fileDescriptor = data.getJSONObject(0);
+                final JSONObject options        = data.getJSONObject(1);
+                final String formatOpt = options.optString("format", "binary");
+
+                this.uri = Uri.parse(fileDescriptor.getString("uri"));
+                this.format = ResultFormat.fromString(formatOpt);
+
+                if (this.format == null) {
+                    final String error = "Invalid format '" + formatOpt + "'";
+
+                    final PluginResult result = new PluginResult(PluginResult.Status.ERROR, error);
+                    context.sendPluginResult(result);
+                    log(DEBUG, "stream() -> " + error);
+
+                    return;
+                }
+
+                Serializer.streamBytesFromURI(contentResolver, uri, this);
+            }
+            catch (JSONException e) {
+                final PluginResult result = new PluginResult(PluginResult.Status.ERROR, e.getMessage());
+                context.sendPluginResult(result);
+                log(DEBUG, "stream() -> json error");
+            }
+        }
+
+        public void onData(byte[] data, final int readedData){
+            if (data.length > readedData) {
+              data = Arrays.copyOf(data, readedData);
+            }
+
+            final PluginResult result = (format == ResultFormat.base64) ?
+                new PluginResult(PluginResult.Status.OK, Serializer.toBase64(data))
+                : new PluginResult(PluginResult.Status.OK, data);
+
+            if (data.length > 0) {
+                result.setKeepCallback(true);
+            }
+            else{
+                log(DEBUG, "stream() " + uri + " -> finished");
+            }
+            context.sendPluginResult(result);
+        }
+
+        public void onError(final Exception error){
+            final PluginResult result = new PluginResult(PluginResult.Status.ERROR, error.getMessage());
+            context.sendPluginResult(result);
+            log(DEBUG, "stream() -> read error");
+        }
+    }
+
 
     /**
      * This is called when a new intent is sent while the app is already opened.

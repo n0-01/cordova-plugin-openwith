@@ -118,6 +118,7 @@ SOFTWARE.
         <source-file src="src/android/cc/fovea/openwith/PluginResultSender.java" target-dir="src/cc/fovea/openwith" />
         <source-file src="src/android/cc/fovea/openwith/Serializer.java" target-dir="src/cc/fovea/openwith" />
         <source-file src="src/android/cc/fovea/openwith/ByteStreams.java" target-dir="src/cc/fovea/openwith" />
+        <source-file src="src/android/cc/fovea/openwith/AsyncReader.java" target-dir="src/cc/fovea/openwith" />
     </platform>
 
 <!--
